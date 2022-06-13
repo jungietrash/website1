@@ -61,6 +61,11 @@
                 </nuxt-link>
               </div>
               <div class="d-flex">
+                <nuxt-link to="/reliefgoods">
+                  <v-icon>mdi-food</v-icon>&nbsp;&nbsp;<b>Relief Goods</b>
+                </nuxt-link>
+              </div>
+              <div class="d-flex">
                 <nuxt-link to="/auth/signout">
                   <v-icon>mdi-exit-to-app</v-icon>&nbsp;&nbsp;<b>Sign out</b>
                 </nuxt-link>

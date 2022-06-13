@@ -22,6 +22,7 @@
                       v-model="editedItem.evacuationName"
                       :items="evacuations"
                       :search-input.sync="search"
+                      v-on:change='findCapacity'
                       item-text="evacuationName"
                       item-value="evacuationName"
                       label="Evacuation Center Name"
@@ -81,7 +82,7 @@
                   </v-row>
                   <v-row>
                     <v-autocomplete
-                      v-model="editedItem.disabilities"
+                      v-model="editedItem.disability"
                       :items="disabilities"
                       label="Disability"
                       :rules="[required('Disability')]"
@@ -95,11 +96,10 @@
                     ></v-text-field>
                   </v-row>
                   <v-row>
-                    <v-text-field
-                      v-model="editedItem.streetAddress"
-                      label="Street Address"
-                      :rules="[required('Street Address')]"
-                    ></v-text-field>
+                      <GmapAutocomplete @place_changed="setPlace" />
+                  </v-row>
+                  <v-row>
+                  <input type="file" accept="image/jpeg" @change="uploadImage">
                   </v-row>
                 </v-form>
               </v-container>
@@ -132,6 +132,9 @@
               hide-details
             ></v-text-field>
           </v-toolbar>
+        </template>
+        <template v-slot:[`item.image`]="{ item }">
+         <img :src="item.image" width="25" height="25">
         </template>
         <template v-slot:[`item.actions`]="{ item }">
           <v-icon
@@ -249,6 +252,10 @@ export default {
       firstName: '',
       lastName: ''
     },
+    capacity: {
+      totalEvacuee: '',
+      evacuationCapacity: ''
+    },
     ...validations
   }),
   async fetch({ store }) {
@@ -260,7 +267,9 @@ export default {
   computed: {
     ...mapState({
       evacuees: state => state.evacuee.evacuees,
-      evacuations: state => state.evacuation.evacuations
+      evacuations: state => state.evacuation.evacuations,
+      totalEvacuees: state => state.capacity.totalEvacuees,
+      evacuationCapacity: state => state.capacity.evacuationCapacity
     }),
     formTitle () {
       return this.editedIndex === -1 ? 'New Evacuee' : 'Edit Evacuee'
@@ -274,14 +283,25 @@ export default {
   created () {
   },
   methods: {
+    async findCapacity () {
+      this.capacity.evacuationName = this.editedItem.evacuationName;
+      let response = await this.$store.dispatch('capacity/findCapacity', this.capacity);
+      this.capacity.evacuationCapacity = this.evacuationCapacity;
+    },
     editItem (item) {
       this.editedIndex = this.evacuees.indexOf(item)
       this.editedItem = Object.assign({}, item)
       this.dialog = true
+      
     },
     async deleteItem (item) {
       try {
-        confirm('Are you sure you want to delete this item?') && await this.$store.dispatch('evacuee/delete', item);
+        this.capacity.totalEvacuee = ((parseInt(this.totalEvacuees) - 1) < 0) ? 0 : (parseInt(this.totalEvacuees) - 1);
+        this.capacity.evacuationName = item.evacuationName;
+        if (confirm('Are you sure you want to delete this item?') == true) {
+          await this.$store.dispatch('evacuee/delete', item);
+          await this.$store.dispatch('capacity/edit', this.capacity);
+        }  
       } catch (e) { }
     },
     close () {
@@ -296,10 +316,39 @@ export default {
         if (this.editedIndex > -1) {
           await this.$store.dispatch('evacuee/edit', this.editedItem);
         } else {
+          this.capacity.totalEvacuee = parseInt(this.totalEvacuees) + 1;
+          this.capacity.evacuationName = this.editedItem.evacuationName;
           await this.$store.dispatch('evacuee/create', this.editedItem);
+          await this.$store.dispatch('capacity/edit', this.capacity);
         }
       } catch (e) { }
       this.close()
+    },
+    setPlace(place) {
+      this.currentPlace = place;
+      this.editedItem.latitude = this.currentPlace.geometry.location.lat();
+      this.editedItem.longitude = this.currentPlace.geometry.location.lng();
+      this.editedItem.streetAddress = this.currentPlace.formatted_address;
+    },
+    addMarker() {
+      if (this.currentPlace) {
+        const marker = {
+          lat: this.currentPlace.geometry.location.lat(),
+          lng: this.currentPlace.geometry.location.lng(),
+        };
+        this.markers.push({ position: marker });
+        this.center = marker;
+        this.currentPlace = null;
+      }
+    },
+    uploadImage(e){
+        const image = e.target.files[0];
+        const reader = new FileReader();
+        reader.readAsDataURL(image);
+        reader.onload = e =>{
+        this.previewImage = e.target.result;
+        this.editedItem.image = this.previewImage.replace(/^data:image\/[a-z]+;base64,/, "");
+      };
     },
   },
 }

@@ -123,7 +123,6 @@
     </v-card>
   </v-container>
 </template>
-
 <script>
 import validations from "~/utils/validations";
 import { mapState } from 'vuex';
